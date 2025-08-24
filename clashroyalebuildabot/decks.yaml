@@ -39,7 +39,7 @@ decks:
     cards:
     - KnightAction
     - ArchersAction
-    - SkeletonsAction
+    - MinionsAction
     - SpearGoblinsAction
     - CannonAction
     - GiantAction

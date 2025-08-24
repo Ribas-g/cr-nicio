@@ -1,14 +1,25 @@
-adb:
-  device_serial: emulator-5554
-  ip: 127.0.0.1
+# Configurações do bot
 bot:
-  auto_start_game: false
-  enable_gui: true
-  load_deck: false
-  log_level: DEBUG
+  log_level: "INFO"
+  load_deck: false  # Desabilitado para evitar abertura automática do navegador
+  auto_start_game: true
+  # Configurações de inteligência
+  intelligence_enabled: true
+  combo_system_enabled: true
+  defense_system_enabled: true
+  strategic_play: true
+
+# Configurações do ADB (apenas as suportadas pelo Emulator)
+adb:
+  ip: "127.0.0.1"
+  device_serial: "emulator-5554"
+
+# Configurações do jogo
 ingame:
   play_action: 1.0
+
+# Configurações visuais (apenas as suportadas pelo Visualizer)
 visuals:
-  save_images: false
   save_labels: false
+  save_images: false
   show_images: true

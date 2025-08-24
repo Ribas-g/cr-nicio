@@ -19,10 +19,11 @@ from clashroyalebuildabot.constants import TILE_HEIGHT
 from clashroyalebuildabot.constants import TILE_INIT_X
 from clashroyalebuildabot.constants import TILE_INIT_Y
 from clashroyalebuildabot.constants import TILE_WIDTH
-from clashroyalebuildabot.detectors.detector import Detector
-from clashroyalebuildabot.emulator.emulator import Emulator
+from clashroyalebuildabot.detectors import Detector
+from clashroyalebuildabot.emulator import Emulator
 from clashroyalebuildabot.namespaces import Screens
 from clashroyalebuildabot.visualizer import Visualizer
+from clashroyalebuildabot.utils.health_monitor import HealthMonitor
 from error_handling import WikifiedError
 
 pause_event = threading.Event()
@@ -53,6 +54,11 @@ class Bot:
         self.detector = Detector(cards=cards)
         self.state = None
         self.play_action_delay = config.get("ingame", {}).get("play_action", 1)
+        
+        # Inicializar monitor de saúde
+        self.health_monitor = HealthMonitor(config)
+        self.health_monitor.add_health_callback(self._on_health_issue)
+        self.health_monitor.start_monitoring()
 
         keyboard_thread = threading.Thread(
             target=self._handle_keyboard_shortcut, daemon=True
@@ -141,9 +147,17 @@ class Bot:
         return actions
 
     def set_state(self):
-        screenshot = self.emulator.take_screenshot()
-        self.state = self.detector.run(screenshot)
-        self.visualizer.run(screenshot, self.state)
+        try:
+            screenshot = self.emulator.take_screenshot()
+            self.state = self.detector.run(screenshot)
+            self.visualizer.run(screenshot, self.state)
+        except Exception as e:
+            logger.error(f"Erro ao definir estado: {str(e)}")
+            import traceback
+            logger.error(f"Traceback do set_state: {traceback.format_exc()}")
+            # Criar estado vazio em caso de erro
+            from clashroyalebuildabot.namespaces import State
+            self.state = State([], [], [], [], False, None)
 
     def play_action(self, action):
         card_centre = self._get_card_centre(action.index)
@@ -163,33 +177,39 @@ class Bot:
             Bot.is_resumed_logged = True
 
     def step(self):
-        self._handle_play_pause_in_step()
-        old_screen = self.state.screen if self.state else None
-        self.set_state()
-        new_screen = self.state.screen
-        if new_screen != old_screen:
-            logger.info(f"New screen state: {new_screen}")
+        try:
+            self._handle_play_pause_in_step()
+            old_screen = self.state.screen if self.state else None
+            self.set_state()
+            new_screen = self.state.screen
+            if new_screen != old_screen:
+                logger.info(f"New screen state: {new_screen}")
 
-        if new_screen == Screens.UNKNOWN:
-            self._log_and_wait("Unknown screen", 2)
-            return
+            if new_screen == Screens.UNKNOWN:
+                self._log_and_wait("Unknown screen", 2)
+                return
 
-        if new_screen == Screens.END_OF_GAME:
-            if not self.end_of_game_clicked:
-                self.emulator.click(*self.state.screen.click_xy)
-                self.end_of_game_clicked = True
-                self._log_and_wait("Clicked END_OF_GAME screen", 2)
-            return
+            if new_screen == Screens.END_OF_GAME:
+                if not self.end_of_game_clicked:
+                    self.emulator.click(*self.state.screen.click_xy)
+                    self.end_of_game_clicked = True
+                    self._log_and_wait("Clicked END_OF_GAME screen", 2)
+                return
 
-        self.end_of_game_clicked = False
-
-        if self.auto_start and new_screen == Screens.LOBBY:
-            self.emulator.click(*self.state.screen.click_xy)
             self.end_of_game_clicked = False
-            self._log_and_wait("Starting game", 2)
-            return
 
-        self._handle_game_step()
+            if self.auto_start and new_screen == Screens.LOBBY:
+                self.emulator.click(*self.state.screen.click_xy)
+                self.end_of_game_clicked = False
+                self._log_and_wait("Starting game", 2)
+                return
+
+            self._handle_game_step()
+        except Exception as e:
+            logger.error(f"Erro no step: {str(e)}")
+            import traceback
+            logger.error(f"Traceback do step: {traceback.format_exc()}")
+            time.sleep(1)  # Pausa para evitar loop infinito
 
     def _handle_game_step(self):
         actions = self.get_actions()
@@ -220,15 +240,48 @@ class Bot:
 
     def run(self):
         try:
+            logger.info("Bot iniciado com sucesso")
             while self.should_run:
-                if not pause_event.is_set():
-                    time.sleep(0.1)
-                    continue
+                try:
+                    if not pause_event.is_set():
+                        time.sleep(0.1)
+                        continue
 
-                self.step()
+                    self.step()
+                except Exception as e:
+                    logger.error(f"Erro durante execução do step: {str(e)}")
+                    logger.error(f"Tipo de erro: {type(e).__name__}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    
+                    # Registrar erro no monitor de saúde
+                    if hasattr(self, 'health_monitor'):
+                        self.health_monitor.record_error()
+                    
+                    time.sleep(2)  # Pausa antes de tentar novamente
+                    continue
+                    
             logger.info("Thanks for using CRBAB, see you next time!")
         except KeyboardInterrupt:
-            logger.info("Thanks for using CRBAB, see you next time!")
+            logger.info("Bot interrompido pelo usuário")
+        except Exception as e:
+            logger.error(f"Erro crítico no bot: {str(e)}")
+            import traceback
+            logger.error(f"Traceback completo: {traceback.format_exc()}")
+        finally:
+            logger.info("Bot finalizado")
 
+    def _on_health_issue(self, issue_type: str, value: float):
+        """Callback para problemas de saúde detectados"""
+        logger.warning(f"Problema de saúde detectado: {issue_type} = {value}")
+        
+        if issue_type == "high_error_rate":
+            logger.warning("Muitos erros detectados, pausando bot temporariamente")
+            pause_event.clear()  # Pausar bot
+            time.sleep(10)  # Pausa de 10 segundos
+            pause_event.set()  # Retomar bot
+            
     def stop(self):
         self.should_run = False
+        if hasattr(self, 'health_monitor'):
+            self.health_monitor.stop_monitoring()

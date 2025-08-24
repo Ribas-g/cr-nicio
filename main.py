@@ -17,14 +17,14 @@ except Exception as e:
 
 
 def main():
-    check_and_pull_updates()
-    
-    # Carregar deck padrão
-    from clashroyalebuildabot.deck_manager import DeckManager
-    deck_manager = DeckManager()
-    actions = deck_manager.get_deck_actions()
-    
     try:
+        check_and_pull_updates()
+        
+        # Carregar deck padrão
+        from clashroyalebuildabot.deck_manager import DeckManager
+        deck_manager = DeckManager()
+        actions = deck_manager.get_deck_actions()
+        
         config = load_config()
 
         app = QApplication([])
@@ -32,11 +32,14 @@ def main():
         setup_logger(window, config)
 
         window.show()
+        logger.info("Interface iniciada com sucesso")
         sys.exit(app.exec())
     except WikifiedError:
         raise
     except Exception as e:
-        logger.error(f"An error occurred in main loop: {e}")
+        logger.error(f"Erro crítico na aplicação: {e}")
+        import traceback
+        logger.error(f"Traceback completo: {traceback.format_exc()}")
         sys.exit(1)
 
 

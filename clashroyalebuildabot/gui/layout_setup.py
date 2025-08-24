@@ -250,11 +250,43 @@ def setup_tabs(main_window):
     )
     ingame_layout.addRow(main_window.load_deck_checkbox)
 
-    main_window.auto_start_game_checkbox = QCheckBox("Auto start games")
-    main_window.auto_start_game_checkbox.setChecked(
-        main_window.config["bot"]["auto_start_game"]
+    main_window.auto_start_game_checkbox = QComboBox()
+    main_window.auto_start_game_checkbox.addItems(["Manual", "Auto"])
+    main_window.auto_start_game_checkbox.setCurrentText(
+        "Auto" if main_window.config["bot"]["auto_start_game"] else "Manual"
     )
-    ingame_layout.addRow(main_window.auto_start_game_checkbox)
+    ingame_layout.addRow("Auto Start Game:", main_window.auto_start_game_checkbox)
+
+    # Controles de inteligência
+    intelligence_group = QGroupBox("Sistema Inteligente")
+    intelligence_layout = QFormLayout()
+    
+    main_window.intelligence_checkbox = QCheckBox("Sistema de Inteligência")
+    main_window.intelligence_checkbox.setChecked(
+        main_window.config["bot"].get("intelligence_enabled", True)
+    )
+    intelligence_layout.addRow(main_window.intelligence_checkbox)
+    
+    main_window.combo_checkbox = QCheckBox("Sistema de Combos")
+    main_window.combo_checkbox.setChecked(
+        main_window.config["bot"].get("combo_system_enabled", True)
+    )
+    intelligence_layout.addRow(main_window.combo_checkbox)
+    
+    main_window.defense_checkbox = QCheckBox("Sistema de Defesa")
+    main_window.defense_checkbox.setChecked(
+        main_window.config["bot"].get("defense_system_enabled", True)
+    )
+    intelligence_layout.addRow(main_window.defense_checkbox)
+    
+    main_window.strategic_checkbox = QCheckBox("Jogada Estratégica")
+    main_window.strategic_checkbox.setChecked(
+        main_window.config["bot"].get("strategic_play", True)
+    )
+    intelligence_layout.addRow(main_window.strategic_checkbox)
+    
+    intelligence_group.setLayout(intelligence_layout)
+    ingame_layout.addRow(intelligence_group)
 
     ingame_group.setLayout(ingame_layout)
 

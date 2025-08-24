@@ -1,3 +1,9 @@
+"""
+Módulo de ações do bot.
+Contém implementações de cartas específicas.
+"""
+
+# Ações originais
 from .archers_action import ArchersAction
 from .arrows_action import ArrowsAction
 from .baby_dragon_action import BabyDragonAction
@@ -15,7 +21,13 @@ from .spear_goblins_action import SpearGoblinsAction
 from .witch_action import WitchAction
 from .zap_action import ZapAction
 
+# Ações aprimoradas
+from .enhanced_giant_action import EnhancedGiantAction
+from .enhanced_musketeer_action import EnhancedMusketeerAction
+from .enhanced_hog_rider_action import EnhancedHogRiderAction
+
 __all__ = [
+    # Ações originais
     "ArchersAction",
     "ArrowsAction",
     "BabyDragonAction",
@@ -32,4 +44,10 @@ __all__ = [
     "SpearGoblinsAction",
     "WitchAction",
     "ZapAction",
+    
+    # Ações aprimoradas
+    'EnhancedGiantAction',
+    'EnhancedMusketeerAction', 
+    'EnhancedHogRiderAction'
 ]
+

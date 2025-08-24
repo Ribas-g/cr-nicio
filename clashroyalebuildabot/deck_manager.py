@@ -9,7 +9,8 @@ from clashroyalebuildabot.actions import *
 ACTION_MAPPING = {}
 
 # Criar mapeamento dinamicamente para todas as Actions
-for action_name in __all__:
+from clashroyalebuildabot.actions import __all__ as action_names
+for action_name in action_names:
     action_class = globals()[action_name]
     ACTION_MAPPING[action_name] = action_class
 

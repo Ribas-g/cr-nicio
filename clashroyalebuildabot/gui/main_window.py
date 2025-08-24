@@ -8,8 +8,9 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtWidgets import QMainWindow
 from PyQt6.QtWidgets import QVBoxLayout
 from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QMessageBox
 
-from clashroyalebuildabot import Bot
+from clashroyalebuildabot.bot.enhanced_bot import EnhancedBot
 from clashroyalebuildabot.bot.bot import pause_event
 from clashroyalebuildabot.gui.animations import start_play_button_animation
 from clashroyalebuildabot.gui.layout_setup import setup_tabs
@@ -91,13 +92,21 @@ class MainWindow(QMainWindow):
         logger.info("Starting bot")
 
     def stop_bot(self):
-        if self.bot:
-            self.bot.stop()
-        self.is_running = False
-        self.start_stop_button.setText("▶")
-        self.play_pause_button.hide()
-        self.server_id_label.setText("Status - Stopped")
-        logger.info("Bot stopped")
+        try:
+            if self.bot:
+                logger.info("Parando bot...")
+                self.bot.stop()
+                self.bot = None
+            self.is_running = False
+            self.start_stop_button.setText("▶")
+            self.play_pause_button.hide()
+            self.server_id_label.setText("Status - Stopped")
+            logger.info("Bot stopped")
+        except Exception as e:
+            logger.error(f"Erro ao parar bot: {str(e)}")
+            # Forçar parada mesmo com erro
+            self.is_running = False
+            self.bot = None
 
     def on_deck_changed(self, deck_id: str):
         """Chamado quando o deck é alterado"""
@@ -137,7 +146,13 @@ class MainWindow(QMainWindow):
         self.config["bot"]["load_deck"] = self.load_deck_checkbox.isChecked()
         self.config["bot"][
             "auto_start_game"
-        ] = self.auto_start_game_checkbox.isChecked()
+        ] = self.auto_start_game_checkbox.currentText() == "Auto"
+        
+        # Configurações de inteligência
+        self.config["bot"]["intelligence_enabled"] = self.intelligence_checkbox.isChecked()
+        self.config["bot"]["combo_system_enabled"] = self.combo_checkbox.isChecked()
+        self.config["bot"]["defense_system_enabled"] = self.defense_checkbox.isChecked()
+        self.config["bot"]["strategic_play"] = self.strategic_checkbox.isChecked()
         log_level_changed = (
             self.config["bot"]["log_level"]
             != self.log_level_dropdown.currentText()
@@ -154,18 +169,27 @@ class MainWindow(QMainWindow):
 
     def bot_task(self):
         try:
-            self.bot = Bot(actions=self.actions, config=self.config)
+            logger.info("Iniciando thread do bot...")
+            self.bot = EnhancedBot(actions=self.actions, config=self.config)
             self.bot.visualizer.frame_ready.connect(
                 self.visualize_tab.update_frame
             )
+            logger.info("Bot criado com sucesso, iniciando execução...")
             self.bot.run()
-            self.stop_bot()
-        except WikifiedError:
+            logger.info("Bot finalizado normalmente")
+        except WikifiedError as we:
+            logger.error(f"Erro Wikified: {we}")
             self.stop_bot()
             raise
         except Exception as e:
+            logger.error(f"Erro crítico no bot: {str(e)}")
+            import traceback
+            logger.error(f"Traceback completo: {traceback.format_exc()}")
             self.stop_bot()
-            raise WikifiedError("003", "Bot crashed.") from e
+            # Não re-raise para evitar crash da interface
+        finally:
+            logger.info("Thread do bot finalizada")
+            self.stop_bot()
 
     def append_log(self, message):
         self.log_display.append(message)
