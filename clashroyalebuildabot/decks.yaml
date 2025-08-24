@@ -1,0 +1,63 @@
+decks:
+  deck_5:
+    cards:
+    - KnightAction
+    - ArchersAction
+    - SkeletonsAction
+    - SpearGoblinsAction
+    - CannonAction
+    - GiantAction
+    - MinipekkaAction
+    - MusketeerAction
+    description: ''
+    name: teste 1
+  giant_beatdown:
+    cards:
+    - GiantAction
+    - FireballAction
+    - ZapAction
+    - MinionsAction
+    - KnightAction
+    - CannonAction
+    - MusketeerAction
+    - WitchAction
+    description: Deck focado em push com Gigante
+    name: Giant Beatdown
+  goblin_barrel_cycle:
+    cards:
+    - ArchersAction
+    - GoblinBarrelAction
+    - BabyDragonAction
+    - CannonAction
+    - KnightAction
+    - MinipekkaAction
+    - MusketeerAction
+    - WitchAction
+    description: Deck rápido com ciclo de cartas baratas
+    name: Goblin Barrel Cycle
+  meu_deck_atual:
+    cards:
+    - KnightAction
+    - ArchersAction
+    - SkeletonsAction
+    - SpearGoblinsAction
+    - CannonAction
+    - GiantAction
+    - MinipekkaAction
+    - MusketeerAction
+    description: Deck balanceado com Cavaleiro, Arqueira, Servos, Goblin Lanceiros,
+      Canhão, Gigante, Mini PEKKA e Mosqueteira
+    name: Meu Deck Atual
+  spell_cycle:
+    cards:
+    - ArrowsAction
+    - FireballAction
+    - ZapAction
+    - BatsAction
+    - KnightAction
+    - CannonAction
+    - MusketeerAction
+    - MinionsAction
+    description: Deck com muitos feitiços
+    name: Spell Cycle
+default_deck: meu_deck_atual

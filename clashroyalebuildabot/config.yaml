@@ -1,0 +1,14 @@
+adb:
+  device_serial: emulator-5554
+  ip: 127.0.0.1
+bot:
+  auto_start_game: false
+  enable_gui: true
+  load_deck: false
+  log_level: DEBUG
+ingame:
+  play_action: 1.0
+visuals:
+  save_images: false
+  save_labels: false
+  show_images: true
