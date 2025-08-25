@@ -106,8 +106,17 @@ class GameStateAnalyzer:
             threat_level = self._calculate_threat_level(enemy)
             
             if threat_level != ThreatLevel.NONE:
+                # Tentar obter nome da unidade de várias formas
+                card_name = 'Unknown'
+                if hasattr(enemy, 'name') and enemy.name:
+                    card_name = enemy.name
+                elif hasattr(enemy, 'unit') and hasattr(enemy.unit, 'name'):
+                    card_name = enemy.unit.name
+                elif hasattr(enemy, '__class__') and hasattr(enemy.__class__, '__name__'):
+                    card_name = enemy.__class__.__name__.replace('Action', '').lower()
+                
                 threats.append(ThreatInfo(
-                    card_name=getattr(enemy, 'name', 'Unknown'),
+                    card_name=card_name,
                     position=(enemy.position.tile_x, enemy.position.tile_y),
                     threat_level=threat_level,
                     distance_to_tower=self._calculate_distance_to_tower(enemy.position),
@@ -126,7 +135,15 @@ class GameStateAnalyzer:
         
         # Cartas de alta prioridade (tanques, win conditions)
         high_priority_cards = ['giant', 'golem', 'hog_rider', 'royal_giant', 'pekka']
-        card_name = getattr(enemy, 'name', '').lower()
+        
+        # Tentar obter nome da unidade de várias formas
+        card_name = ''
+        if hasattr(enemy, 'name') and enemy.name:
+            card_name = enemy.name.lower()
+        elif hasattr(enemy, 'unit') and hasattr(enemy.unit, 'name'):
+            card_name = enemy.unit.name.lower()
+        elif hasattr(enemy, '__class__') and hasattr(enemy.__class__, '__name__'):
+            card_name = enemy.__class__.__name__.replace('Action', '').lower()
         
         if distance <= 3:
             if any(card in card_name for card in high_priority_cards):

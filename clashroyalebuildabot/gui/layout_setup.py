@@ -285,6 +285,12 @@ def setup_tabs(main_window):
     )
     intelligence_layout.addRow(main_window.strategic_checkbox)
     
+    main_window.advanced_systems_checkbox = QCheckBox("Sistemas Avançados")
+    main_window.advanced_systems_checkbox.setChecked(
+        main_window.config["bot"].get("advanced_systems_enabled", True)
+    )
+    intelligence_layout.addRow(main_window.advanced_systems_checkbox)
+    
     intelligence_group.setLayout(intelligence_layout)
     ingame_layout.addRow(intelligence_group)
 

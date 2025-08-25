@@ -55,6 +55,14 @@ class Bot:
         self.state = None
         self.play_action_delay = config.get("ingame", {}).get("play_action", 1)
         
+        # Sistema de performance monitoring
+        self.performance_monitor = {
+            'step_times': [],
+            'avg_step_time': 0.0,
+            'last_optimization': time.time(),
+            'optimization_interval': 30.0  # Otimizar a cada 30 segundos
+        }
+        
         # Inicializar monitor de saúde
         self.health_monitor = HealthMonitor(config)
         self.health_monitor.add_health_callback(self._on_health_issue)
@@ -170,13 +178,14 @@ class Bot:
             if not Bot.is_paused_logged:
                 logger.info("Bot paused.")
                 Bot.is_paused_logged = True
-            time.sleep(0.1)
+            time.sleep(0.05)  # Reduzido de 0.1 para 0.05
             return
         if not Bot.is_resumed_logged:
             logger.info("Bot resumed.")
             Bot.is_resumed_logged = True
 
     def step(self):
+        step_start_time = time.time()
         try:
             self._handle_play_pause_in_step()
             old_screen = self.state.screen if self.state else None
@@ -186,14 +195,14 @@ class Bot:
                 logger.info(f"New screen state: {new_screen}")
 
             if new_screen == Screens.UNKNOWN:
-                self._log_and_wait("Unknown screen", 2)
+                self._log_and_wait("Unknown screen", 0.5)  # Reduzido de 2 para 0.5
                 return
 
             if new_screen == Screens.END_OF_GAME:
                 if not self.end_of_game_clicked:
                     self.emulator.click(*self.state.screen.click_xy)
                     self.end_of_game_clicked = True
-                    self._log_and_wait("Clicked END_OF_GAME screen", 2)
+                    self._log_and_wait("Clicked END_OF_GAME screen", 0.5)  # Reduzido de 2 para 0.5
                 return
 
             self.end_of_game_clicked = False
@@ -201,15 +210,19 @@ class Bot:
             if self.auto_start and new_screen == Screens.LOBBY:
                 self.emulator.click(*self.state.screen.click_xy)
                 self.end_of_game_clicked = False
-                self._log_and_wait("Starting game", 2)
+                self._log_and_wait("Starting game", 0.5)  # Reduzido de 2 para 0.5
                 return
 
             self._handle_game_step()
+            
         except Exception as e:
             logger.error(f"Erro no step: {str(e)}")
             import traceback
             logger.error(f"Traceback do step: {traceback.format_exc()}")
-            time.sleep(1)  # Pausa para evitar loop infinito
+            time.sleep(0.5)  # Reduzido de 1 para 0.5 segundos
+        finally:
+            # Monitorar performance
+            self._monitor_performance(step_start_time)
 
     def _handle_game_step(self):
         actions = self.get_actions()
@@ -241,13 +254,24 @@ class Bot:
     def run(self):
         try:
             logger.info("Bot iniciado com sucesso")
+            last_step_time = time.time()
+            min_step_interval = 0.1  # Intervalo mínimo entre steps (100ms)
+            
             while self.should_run:
                 try:
                     if not pause_event.is_set():
-                        time.sleep(0.1)
+                        time.sleep(0.05)  # Reduzido de 0.1 para 0.05
                         continue
 
+                    # Controle de framerate para evitar sobrecarga
+                    current_time = time.time()
+                    if current_time - last_step_time < min_step_interval:
+                        time.sleep(0.01)  # Sleep muito pequeno para manter responsividade
+                        continue
+                    
+                    last_step_time = current_time
                     self.step()
+                    
                 except Exception as e:
                     logger.error(f"Erro durante execução do step: {str(e)}")
                     logger.error(f"Tipo de erro: {type(e).__name__}")
@@ -258,7 +282,7 @@ class Bot:
                     if hasattr(self, 'health_monitor'):
                         self.health_monitor.record_error()
                     
-                    time.sleep(2)  # Pausa antes de tentar novamente
+                    time.sleep(1)  # Reduzido de 2 para 1 segundo
                     continue
                     
             logger.info("Thanks for using CRBAB, see you next time!")
@@ -285,3 +309,52 @@ class Bot:
         self.should_run = False
         if hasattr(self, 'health_monitor'):
             self.health_monitor.stop_monitoring()
+    
+    def _monitor_performance(self, step_start_time: float):
+        """Monitora a performance do bot e ajusta automaticamente"""
+        
+        step_time = time.time() - step_start_time
+        self.performance_monitor['step_times'].append(step_time)
+        
+        # Manter apenas os últimos 100 steps
+        if len(self.performance_monitor['step_times']) > 100:
+            self.performance_monitor['step_times'] = self.performance_monitor['step_times'][-100:]
+        
+        # Calcular tempo médio
+        self.performance_monitor['avg_step_time'] = sum(self.performance_monitor['step_times']) / len(self.performance_monitor['step_times'])
+        
+        # Otimizar periodicamente
+        current_time = time.time()
+        if current_time - self.performance_monitor['last_optimization'] > self.performance_monitor['optimization_interval']:
+            self._optimize_performance()
+            self.performance_monitor['last_optimization'] = current_time
+    
+    def _optimize_performance(self):
+        """Otimiza a performance baseada nos dados coletados"""
+        
+        avg_time = self.performance_monitor['avg_step_time']
+        
+        # Se o tempo médio está muito alto, reduzir delays
+        if avg_time > 0.5:  # Mais de 500ms por step
+            if self.play_action_delay > 0.1:
+                self.play_action_delay *= 0.8  # Reduzir 20%
+                logger.info(f"Performance lenta detectada. Reduzindo delay para {self.play_action_delay:.2f}s")
+        
+        # Se o tempo médio está muito baixo, podemos ser mais agressivos
+        elif avg_time < 0.1:  # Menos de 100ms por step
+            if self.play_action_delay < 0.5:
+                self.play_action_delay *= 1.1  # Aumentar 10%
+                logger.info(f"Performance boa detectada. Aumentando delay para {self.play_action_delay:.2f}s")
+        
+        # Log de performance a cada 30 segundos
+        logger.info(f"Performance: {avg_time:.3f}s/step, Delay: {self.play_action_delay:.2f}s")
+    
+    def get_performance_stats(self) -> dict:
+        """Retorna estatísticas de performance"""
+        
+        return {
+            'avg_step_time': self.performance_monitor['avg_step_time'],
+            'play_action_delay': self.play_action_delay,
+            'total_steps': len(self.performance_monitor['step_times']),
+            'fps_estimate': 1.0 / max(0.001, self.performance_monitor['avg_step_time'])
+        }

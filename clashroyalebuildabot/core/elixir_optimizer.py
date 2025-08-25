@@ -410,7 +410,7 @@ class ElixirOptimizer:
         stats = self.get_elixir_efficiency_stats()
         
         if not stats:
-            return "💰 Otimização de Elixir: Sem dados suficientes"
+            return "💰 Otimização de Elixir: Coletando dados de eficiência..."
         
         summary = f"💰 Otimização de Elixir:\n"
         summary += f"   Custo médio: {stats['average_cost']:.1f}\n"

@@ -1,19 +1,35 @@
 """
-Bot principal aprimorado que integra todos os sistemas inteligentes:
-- Análise de deck e papéis das cartas
-- Sistema de combos
-- Defesa inteligente
-- Ações contextuais das cartas
+Enhanced Bot with Intelligent Systems
+====================================
+
+Bot aprimorado com sistemas inteligentes de decisão, combos, defesa e otimização.
 """
 
-import random
-import threading
 import time
-from typing import List, Dict, Optional
+import random
+from typing import List, Optional, Tuple, Dict, Any
+from dataclasses import dataclass
 
+from ..core.combo_system import ComboManager
+from ..core.defense_system import DefenseManager
+from ..core.enhanced_action import EnhancedAction
+from ..core.memory_system import MemorySystem
+from ..core.elixir_optimizer import ElixirOptimizer
+
+# Sistemas Avançados
+from ..advanced_systems.master_integration import MasterBotController, GameState, ActionRecommendation
+from ..advanced_systems.enemy_prediction import AdvancedEnemyPredictor as EnemyCardPredictor
+from ..advanced_systems.dynamic_timing import DynamicTimingManager
+from ..advanced_systems.proactive_defense import ProactiveDefenseManager
+from ..advanced_systems.advanced_elixir_control import AdvancedElixirController
+from ..advanced_systems.intelligent_positioning import IntelligentPositioning, PositionType
+from ..advanced_systems.phase_control import PhaseController
+from ..advanced_systems.phase_control import GamePhase as AdvancedGamePhase
+
+from .bot import Bot
 from ..namespaces.cards import Cards
-from .bot import Bot as OriginalBot
-from ..namespaces.cards import Card
+from ..namespaces.state import State
+from ..utils.logger import logger
 
 from ..core.card_roles import DeckAnalyzer, CardRoleDatabase
 from ..core.game_state import GameStateAnalyzer, GameStateInfo
@@ -23,19 +39,31 @@ from ..core.enhanced_action import EnhancedAction
 from ..core.memory_system import MemorySystem
 from ..core.elixir_optimizer import ElixirOptimizer
 
-# Importar ações aprimoradas
-from ..actions.enhanced_giant_action import EnhancedGiantAction
-from ..actions.enhanced_musketeer_action import EnhancedMusketeerAction
-from ..actions.enhanced_hog_rider_action import EnhancedHogRiderAction
+# Importar ações aprimoradas (se existirem)
+try:
+    from ..actions.enhanced_giant_action import EnhancedGiantAction
+    from ..actions.enhanced_musketeer_action import EnhancedMusketeerAction
+    from ..actions.enhanced_hog_rider_action import EnhancedHogRiderAction
+    ENHANCED_ACTIONS_AVAILABLE = True
+except ImportError:
+    ENHANCED_ACTIONS_AVAILABLE = False
+    print("⚠️  Ações aprimoradas não disponíveis, usando ações padrão")
 
 
-class EnhancedBot(OriginalBot):
-    """Bot aprimorado com inteligência estratégica"""
+class EnhancedBot(Bot):
+    """Bot aprimorado com inteligência estratégica e sistemas avançados"""
     
     def __init__(self, actions, config):
         super().__init__(actions, config)
         
-        # Sistemas inteligentes
+        # Configurações de inteligência
+        self.intelligence_enabled = config.get("bot", {}).get("intelligence_enabled", True)
+        self.combo_system_enabled = config.get("bot", {}).get("combo_system_enabled", True)
+        self.defense_system_enabled = config.get("bot", {}).get("defense_system_enabled", True)
+        self.strategic_play = config.get("bot", {}).get("strategic_play", True)
+        self.advanced_systems_enabled = config.get("bot", {}).get("advanced_systems_enabled", True)
+        
+        # Sistemas inteligentes básicos
         self.deck_analyzer: Optional[DeckAnalyzer] = None
         self.game_state_analyzer: Optional[GameStateAnalyzer] = None
         self.combo_manager: Optional[ComboManager] = None
@@ -43,16 +71,23 @@ class EnhancedBot(OriginalBot):
         self.memory_system: Optional[MemorySystem] = None
         self.elixir_optimizer: Optional[ElixirOptimizer] = None
         
+        # Sistemas avançados
+        self.master_controller: Optional[MasterBotController] = None
+        self.enemy_predictor: Optional[EnemyCardPredictor] = None
+        self.timing_manager: Optional[DynamicTimingManager] = None
+        self.proactive_defense: Optional[ProactiveDefenseManager] = None
+        self.advanced_elixir: Optional[AdvancedElixirController] = None
+        self.intelligent_positioning: Optional[IntelligentPositioning] = None
+        self.phase_controller: Optional[PhaseController] = None
+        
         # Cache e estado
         self.last_game_state: Optional[GameStateInfo] = None
         self.cards_in_hand: List[Cards] = []
         self.enhanced_actions: Dict[str, EnhancedAction] = {}
         
-        # Configurações
-        self.intelligence_enabled = config.get("bot", {}).get("intelligence_enabled", True)
-        self.combo_system_enabled = config.get("bot", {}).get("combo_system_enabled", True)
-        self.defense_system_enabled = config.get("bot", {}).get("defense_system_enabled", True)
-        self.strategic_play = config.get("bot", {}).get("strategic_play", True)
+        # Estado do jogo para sistemas avançados
+        self.advanced_game_state: Optional[GameState] = None
+        self.last_action_recommendation: Optional[ActionRecommendation] = None
         
         # Inicializar sistemas quando deck estiver disponível
         self._initialize_systems()
@@ -72,7 +107,7 @@ class EnhancedBot(OriginalBot):
         
         print(f"🎯 Inicializando sistemas inteligentes com deck: {[card.name for card in deck_cards]}")
         
-        # Inicializar analisadores
+        # Inicializar sistemas básicos
         self.deck_analyzer = DeckAnalyzer(deck_cards)
         self.game_state_analyzer = GameStateAnalyzer(self.deck_analyzer)
         self.combo_manager = ComboManager(deck_cards)
@@ -80,7 +115,23 @@ class EnhancedBot(OriginalBot):
         self.memory_system = MemorySystem()
         self.elixir_optimizer = ElixirOptimizer()
         
-        print(f"✅ Sistemas inicializados:")
+        # Inicializar sistemas avançados se habilitados
+        if self.advanced_systems_enabled:
+            print("🚀 Inicializando sistemas avançados...")
+            
+            self.enemy_predictor = EnemyCardPredictor()
+            self.timing_manager = DynamicTimingManager()
+            self.proactive_defense = ProactiveDefenseManager()
+            self.advanced_elixir = AdvancedElixirController()
+            self.intelligent_positioning = IntelligentPositioning()
+            self.phase_controller = PhaseController()
+            
+            # Inicializar controlador principal
+            self.master_controller = MasterBotController()
+            
+            print("✅ Sistemas avançados inicializados!")
+        
+        print(f"✅ Sistemas básicos inicializados:")
         print(f"   📊 Estratégia do deck: {self.deck_analyzer.strategy}")
         print(f"   🎯 Win condition principal: {self.deck_analyzer.get_primary_win_condition()}")
         print(f"   🔄 Combos disponíveis: {len(self.combo_manager.available_combos)}")
@@ -95,12 +146,14 @@ class EnhancedBot(OriginalBot):
         if not self.intelligence_enabled or not original_actions:
             return original_actions
         
-        # Mapeamento de ações aprimoradas
-        enhanced_action_map = {
-            Cards.GIANT: EnhancedGiantAction,
-            Cards.MUSKETEER: EnhancedMusketeerAction,
-            Cards.HOG_RIDER: EnhancedHogRiderAction,
-        }
+        # Mapeamento de ações aprimoradas (se disponíveis)
+        enhanced_action_map = {}
+        if ENHANCED_ACTIONS_AVAILABLE:
+            enhanced_action_map = {
+                Cards.GIANT: EnhancedGiantAction,
+                Cards.MUSKETEER: EnhancedMusketeerAction,
+                Cards.HOG_RIDER: EnhancedHogRiderAction,
+            }
         
         enhanced_actions = []
         
@@ -659,32 +712,217 @@ class EnhancedBot(OriginalBot):
         if self.combo_manager:
             self.combo_manager.cleanup_completed_combos()
     
+    def _update_advanced_game_state(self):
+        """Atualiza o estado do jogo para sistemas avançados"""
+        
+        if not self.advanced_systems_enabled or not self.master_controller:
+            return
+        
+        try:
+            # Determinar fase do jogo
+            game_time = getattr(self.state, 'game_time', 0.0)
+            try:
+                phase = self.phase_controller.get_current_phase(game_time) if self.phase_controller else AdvancedGamePhase.MID_GAME
+            except AttributeError:
+                # Fallback se o método não existir
+                if game_time <= 60:
+                    phase = AdvancedGamePhase.EARLY_GAME
+                elif game_time <= 180:
+                    phase = AdvancedGamePhase.MID_GAME
+                elif game_time <= 300:
+                    phase = AdvancedGamePhase.LATE_GAME
+                else:
+                    phase = AdvancedGamePhase.OVERTIME
+            
+            # Estimar elixir inimigo
+            enemy_elixir = 5  # Valor padrão
+            if self.advanced_elixir:
+                enemy_elixir = self.advanced_elixir.estimate_enemy_elixir()
+            
+            # Obter HP das torres
+            tower_hp = {
+                "our_left": 2000,  # Valores padrão - idealmente extrair do estado
+                "our_right": 2000,
+                "enemy_left": 2000,
+                "enemy_right": 2000
+            }
+            
+            # Unidades no campo (simplificado)
+            units_on_field = []
+            if hasattr(self.state, 'units') and self.state.units:
+                for unit in self.state.units:
+                    units_on_field.append({
+                        "name": unit.name,
+                        "position": (unit.x, unit.y),
+                        "hp": unit.hp,
+                        "is_enemy": unit.is_enemy
+                    })
+            
+            # Criar estado avançado
+            self.advanced_game_state = GameState(
+                game_time=game_time,
+                phase=phase,
+                our_elixir=self.state.numbers.elixir.number,
+                enemy_elixir_estimate=enemy_elixir,
+                elixir_advantage=self.state.numbers.elixir.number - enemy_elixir,
+                tower_hp=tower_hp,
+                units_on_field=units_on_field,
+                our_hand=self.cards_in_hand,
+                enemy_cards_seen=self.memory_system.get_seen_cards() if self.memory_system else [],
+                recent_enemy_plays=self.memory_system.get_recent_plays() if self.memory_system else [],
+                recent_our_plays=[]  # Implementar rastreamento de nossas jogadas
+            )
+            
+            # Atualizar controlador principal
+            self.master_controller.update_game_state(
+                game_time=getattr(self.state, 'game_time', 0.0),
+                our_elixir=self.state.numbers.elixir.number if self.state and self.state.numbers and self.state.numbers.elixir else 5,
+                tower_hp={'king': 100, 'left': 100, 'right': 100},  # Placeholder
+                units_on_field=[],  # Placeholder - implementar detecção de unidades
+                our_hand=self.cards_in_hand,
+                recent_enemy_plays=self.memory_system.get_recent_plays() if self.memory_system else [],
+                recent_our_plays=[]  # Implementar rastreamento de nossas jogadas
+            )
+            
+        except Exception as e:
+            print(f"⚠️  Erro atualizando estado avançado: {e}")
+    
+    def _get_advanced_recommendation(self):
+        """Obtém recomendação dos sistemas avançados"""
+        
+        if not self.advanced_systems_enabled or not self.master_controller:
+            return None
+        
+        try:
+            # Obter recomendação do controlador principal
+            recommendation = self.master_controller.get_best_action()
+            
+            if recommendation and recommendation.confidence > 0.7:
+                self.last_action_recommendation = recommendation
+                print(f"🎯 Recomendação avançada: {recommendation.action_type}")
+                print(f"   Carta: {recommendation.card.name if recommendation.card else 'N/A'}")
+                print(f"   Posição: {recommendation.position}")
+                print(f"   Confiança: {recommendation.confidence:.2f}")
+                print(f"   Razão: {', '.join(recommendation.reasoning)}")
+                
+                return recommendation
+            
+        except Exception as e:
+            print(f"⚠️  Erro obtendo recomendação avançada: {e}")
+        
+        return None
+    
+    def _execute_advanced_recommendation(self, recommendation: ActionRecommendation):
+        """Executa recomendação dos sistemas avançados"""
+        
+        if not recommendation:
+            return False
+        
+        try:
+            if recommendation.action_type == "play_card" and recommendation.card:
+                # Encontrar ação correspondente à carta
+                actions = self.get_actions()
+                for action in actions:
+                    if hasattr(action, 'CARD') and action.CARD == recommendation.card:
+                        # Atualizar posição se especificada
+                        if recommendation.position:
+                            action.tile_x, action.tile_y = recommendation.position
+                        
+                        # Executar ação
+                        self.play_action(action)
+                        
+                        print(f"🚀 Executando ação avançada: {recommendation.card.name}")
+                        self._log_and_wait(
+                            f"Advanced action: {recommendation.card.name}",
+                            self.play_action_delay
+                        )
+                        
+                        # Registrar nossa jogada na memória
+                        if self.memory_system:
+                            card_cost = getattr(recommendation.card, 'cost', 4)
+                            self.memory_system.record_our_play(
+                                card=recommendation.card,
+                                elixir_spent=card_cost,
+                                strategy=recommendation.action_type
+                            )
+                        
+                        # Registrar resultado para aprendizado
+                        if self.master_controller:
+                            self.master_controller.record_action_outcome(
+                                success=True,  # Assumir sucesso por enquanto
+                                damage_dealt=0  # Implementar rastreamento de dano
+                            )
+                        
+                        return True
+            
+            elif recommendation.action_type == "wait":
+                print(f"⏳ Aguardando {recommendation.timing_delay:.1f}s (recomendação avançada)")
+                time.sleep(recommendation.timing_delay)
+                return True
+            
+        except Exception as e:
+            print(f"⚠️  Erro executando recomendação avançada: {e}")
+        
+        return False
+    
+    def _integrate_advanced_systems(self):
+        """Integra sistemas avançados na tomada de decisão"""
+        
+        if not self.advanced_systems_enabled:
+            return None
+        
+        try:
+            # Atualizar estado do jogo
+            self._update_advanced_game_state()
+            
+            # Obter recomendação avançada
+            recommendation = self._get_advanced_recommendation()
+            
+            if recommendation:
+                # Tentar executar recomendação
+                if self._execute_advanced_recommendation(recommendation):
+                    return True
+            
+        except Exception as e:
+            print(f"⚠️  Erro integrando sistemas avançados: {e}")
+        
+        return False
+    
     def __repr__(self):
         return f"EnhancedBot(intelligence={self.intelligence_enabled}, " \
-               f"combos={self.combo_system_enabled}, defense={self.defense_system_enabled})"
+               f"combos={self.combo_system_enabled}, defense={self.defense_system_enabled}, " \
+               f"advanced={self.advanced_systems_enabled})"
 
     def _handle_game_step(self):
-        """Método sobrescrito para usar lógica inteligente"""
+        """Método sobrescrito para usar lógica inteligente e sistemas avançados"""
         
         if not self.intelligence_enabled:
             # Usar lógica original se inteligência estiver desabilitada
             return super()._handle_game_step()
         
         try:
-            # Analisar estado atual do jogo
-            if self.game_state_analyzer and self.state:
+            # PRIORIDADE 1: Sistemas Avançados (se habilitados)
+            if self.advanced_systems_enabled:
+                advanced_result = self._integrate_advanced_systems()
+                if advanced_result:
+                    return  # Sistema avançado tomou decisão
+            
+            # PRIORIDADE 2: Sistemas Básicos Inteligentes
+            # Analisar estado atual do jogo (otimizado - menos frequente)
+            if self.game_state_analyzer and self.state and time.time() % 5 < 0.1:  # A cada ~5 segundos
                 self.last_game_state = self.game_state_analyzer.analyze_state(self.state)
                 self._log_game_state()
             
             # Atualizar cartas na mão
             self._update_cards_in_hand(self.state)
             
-            # Registrar jogadas inimigas na memória
-            self._record_enemy_plays()
+            # Registrar jogadas inimigas na memória (otimizado)
+            if time.time() % 2 < 0.1:  # A cada ~2 segundos
+                self._record_enemy_plays()
             
-            # Analisar otimização de elixir
+            # Analisar otimização de elixir (otimizado)
             elixir_analysis = None
-            if self.elixir_optimizer:
+            if self.elixir_optimizer and time.time() % 3 < 0.1:  # A cada ~3 segundos
                 actions = self.get_actions()
                 elixir_analysis = self.elixir_optimizer.analyze_elixir_situation(
                     self.state.numbers.elixir.number, actions
@@ -710,7 +948,7 @@ class EnhancedBot(OriginalBot):
                 return
             
             # Fallback para lógica original se nada inteligente for encontrado
-            print("Usando lógica original como fallback")
+            print("🤖 Nenhuma decisão inteligente encontrada, usando lógica padrão")
             return super()._handle_game_step()
             
         except Exception as e:
@@ -721,31 +959,59 @@ class EnhancedBot(OriginalBot):
             return super()._handle_game_step()
     
     def _execute_intelligent_action(self, action_info):
-        """Executa ação inteligente"""
+        """Executa ação inteligente (otimizado)"""
         
         if not action_info:
             return
         
         try:
-            card_index, tile_x, tile_y = action_info
+            # Verificar se é tuple com 2 ou 3 valores
+            if len(action_info) == 2:
+                card, position = action_info
+                tile_x, tile_y = position
+                # Encontrar índice da carta
+                card_index = None
+                for i, action in enumerate(self.get_actions()):
+                    if hasattr(action, 'CARD') and action.CARD == card:
+                        card_index = i
+                        break
+            elif len(action_info) == 3:
+                card_index, tile_x, tile_y = action_info
+            else:
+                print(f"Formato de ação inválido: {action_info}")
+                return
             
             # Encontrar ação correspondente
-            for action in self.actions:
-                if hasattr(action, 'index') and action.index == card_index:
-                    # Atualizar posição
-                    action.tile_x = tile_x
-                    action.tile_y = tile_y
-                    
-                    # Executar ação
-                    self.play_action(action)
-                    
-                    card_name = getattr(action, 'CARD', 'Unknown')
-                    print(f"🎯 Ação inteligente: {card_name} em ({tile_x}, {tile_y})")
-                    self._log_and_wait(
-                        f"Playing {card_name} with intelligent strategy",
-                        self.play_action_delay
+            actions = self.get_actions()
+            if card_index is not None and card_index < len(actions):
+                action = actions[card_index]
+                
+                # Atualizar posição
+                action.tile_x = tile_x
+                action.tile_y = tile_y
+                
+                # Executar ação
+                self.play_action(action)
+                
+                card_name = getattr(action, 'CARD', 'Unknown')
+                print(f"🎯 Ação inteligente: {card_name} em ({tile_x}, {tile_y})")
+                
+                # Delay reduzido para melhor responsividade
+                self._log_and_wait(
+                    f"Playing {card_name} with intelligent strategy",
+                    max(0.1, self.play_action_delay * 0.5)  # Reduzir delay pela metade
+                )
+                
+                # Registrar nossa jogada na memória
+                if self.memory_system and hasattr(action, 'CARD'):
+                    card_cost = getattr(action.CARD, 'cost', 4)
+                    self.memory_system.record_our_play(
+                        card=action.CARD,
+                        elixir_spent=card_cost,
+                        strategy="intelligent_play"
                     )
-                    return
+                
+                return
                     
         except Exception as e:
             print(f"Erro executando ação inteligente: {e}")

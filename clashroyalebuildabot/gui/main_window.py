@@ -153,6 +153,7 @@ class MainWindow(QMainWindow):
         self.config["bot"]["combo_system_enabled"] = self.combo_checkbox.isChecked()
         self.config["bot"]["defense_system_enabled"] = self.defense_checkbox.isChecked()
         self.config["bot"]["strategic_play"] = self.strategic_checkbox.isChecked()
+        self.config["bot"]["advanced_systems_enabled"] = self.advanced_systems_checkbox.isChecked()
         log_level_changed = (
             self.config["bot"]["log_level"]
             != self.log_level_dropdown.currentText()

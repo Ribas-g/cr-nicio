@@ -2,12 +2,15 @@
 bot:
   log_level: "INFO"
   load_deck: false  # Desabilitado para evitar abertura automática do navegador
-  auto_start_game: true
+  auto_start_game: "Manual"
   # Configurações de inteligência
   intelligence_enabled: true
   combo_system_enabled: true
   defense_system_enabled: true
   strategic_play: true
+  advanced_systems_enabled: true  # Novo: Habilita sistemas avançados
+  play_action_delay: 0.3  # Reduzido de 1.0 para 0.3 segundos
+  wait_time: 0.2  # Reduzido de 1.0 para 0.2 segundos
 
 # Configurações do ADB (apenas as suportadas pelo Emulator)
 adb:
@@ -16,10 +19,19 @@ adb:
 
 # Configurações do jogo
 ingame:
-  play_action: 1.0
+  play_action: 0.3  # Reduzido de 1.0 para 0.3 segundos
 
 # Configurações visuais (apenas as suportadas pelo Visualizer)
 visuals:
   save_labels: false
   save_images: false
-  show_images: true
+  show_images: false  # Desabilitado para melhorar performance
+
+# Configurações de performance
+performance:
+  min_step_interval: 0.1  # Intervalo mínimo entre steps (100ms)
+  max_step_interval: 0.5  # Intervalo máximo entre steps (500ms)
+  optimization_interval: 30.0  # Otimizar a cada 30 segundos
+  target_fps: 10.0  # FPS alvo (10 FPS = 100ms por frame)
+  enable_auto_optimization: true  # Otimização automática
+  reduce_logging: true  # Reduzir logs para melhorar performance

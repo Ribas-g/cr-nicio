@@ -62,16 +62,29 @@ class EnemyMemory:
     average_elixir_per_play: float = 0.0
 
 
+@dataclass
+class OurMemory:
+    """Memória das nossas próprias jogadas e estratégias"""
+    cards_played: List[Cards] = field(default_factory=list)
+    play_timestamps: List[float] = field(default_factory=list)
+    cycle_position: int = 0
+    last_cycle_start: float = 0.0
+    deck_rotation: List[Cards] = field(default_factory=list)
+    strategy_effectiveness: Dict[str, float] = field(default_factory=dict)
+    elixir_efficiency: List[Tuple[float, int]] = field(default_factory=list)  # (timestamp, elixir_spent)
+
+
 class MemorySystem:
     """Sistema principal de memória"""
     
     def __init__(self):
         self.enemy_memory = EnemyMemory()
+        self.our_memory = OurMemory()
         self.game_start_time = time.time()
         self.last_analysis_time = 0.0
         self.analysis_interval = 10.0  # Analisar a cada 10 segundos
         
-        # Inicializar cartas não vistas (todas as cartas do namespace)
+        # Inicializar cartas não vistas do inimigo (todas as cartas do namespace)
         self.enemy_memory.cards_not_seen = set()
         for attr_name in dir(Cards):
             if not attr_name.startswith('_') and attr_name.isupper():
@@ -304,6 +317,95 @@ class MemorySystem:
         summary += f"   Cartas vistas: {insights['cards_seen']}/8\n"
         summary += f"   Elixir médio: {insights['average_elixir']:.1f}\n"
         summary += f"   Padrões: {insights['patterns_found']}\n"
-        summary += f"   Estratégia: {insights['recommended_strategy']}"
+        summary += f"   Estratégia: {insights['recommended_strategy']}\n\n"
+        
+        # Adicionar resumo da nossa memória
+        summary += self.get_our_memory_summary()
+        
+        return summary
+    
+    def get_seen_cards(self) -> List[Cards]:
+        """Retorna lista de cartas vistas do inimigo"""
+        return list(self.enemy_memory.cards_seen)
+    
+    def get_recent_plays(self) -> List[Tuple[Cards, Tuple[int, int], float]]:
+        """Retorna jogadas recentes do inimigo"""
+        recent_plays = []
+        current_time = time.time()
+        
+        # Últimas 5 jogadas
+        for play in self.enemy_memory.card_plays[-5:]:
+            recent_plays.append((
+                play.card,
+                play.position,
+                current_time - play.timestamp
+            ))
+        
+        return recent_plays
+    
+    def record_our_play(self, card: Cards, elixir_spent: int, strategy: str = "neutral"):
+        """Registra uma jogada nossa"""
+        
+        current_time = time.time()
+        
+        # Registrar a jogada
+        self.our_memory.cards_played.append(card)
+        self.our_memory.play_timestamps.append(current_time)
+        self.our_memory.elixir_efficiency.append((current_time, elixir_spent))
+        
+        # Atualizar ciclo
+        self._update_our_cycle()
+        
+        # Atualizar eficiência da estratégia
+        self._update_strategy_effectiveness(strategy, elixir_spent)
+    
+    def _update_our_cycle(self):
+        """Atualiza posição no ciclo do nosso deck"""
+        
+        # Se temos 4 cartas únicas jogadas, começamos um novo ciclo
+        unique_cards = set(self.our_memory.cards_played[-4:])
+        if len(unique_cards) == 4:
+            self.our_memory.cycle_position = 0
+            self.our_memory.last_cycle_start = time.time()
+        else:
+            self.our_memory.cycle_position = len(unique_cards)
+    
+    def _update_strategy_effectiveness(self, strategy: str, elixir_spent: int):
+        """Atualiza eficiência de uma estratégia"""
+        
+        if strategy not in self.our_memory.strategy_effectiveness:
+            self.our_memory.strategy_effectiveness[strategy] = 0.5  # Eficiência neutra
+        
+        # Ajustar baseado no gasto de elixir (menor é melhor)
+        efficiency = max(0, 1.0 - (elixir_spent - 4.0) / 4.0)
+        
+        # Média ponderada com histórico
+        current = self.our_memory.strategy_effectiveness[strategy]
+        self.our_memory.strategy_effectiveness[strategy] = (current * 0.8) + (efficiency * 0.2)
+    
+    def get_our_cycle_info(self) -> Dict:
+        """Retorna informações sobre nosso ciclo de cartas"""
+        
+        return {
+            'cycle_position': self.our_memory.cycle_position,
+            'cards_played_this_cycle': len(set(self.our_memory.cards_played[-4:])),
+            'time_since_cycle_start': time.time() - self.our_memory.last_cycle_start,
+            'last_4_cards': self.our_memory.cards_played[-4:] if self.our_memory.cards_played else [],
+            'strategy_effectiveness': self.our_memory.strategy_effectiveness.copy()
+        }
+    
+    def get_our_memory_summary(self) -> str:
+        """Retorna resumo da nossa memória para logging"""
+        
+        cycle_info = self.get_our_cycle_info()
+        
+        summary = f"🎯 Nossa Estratégia:\n"
+        summary += f"   Ciclo: {cycle_info['cycle_position']}/4\n"
+        summary += f"   Cartas jogadas: {len(self.our_memory.cards_played)}\n"
+        summary += f"   Tempo desde início do ciclo: {cycle_info['time_since_cycle_start']:.1f}s\n"
+        
+        if cycle_info['strategy_effectiveness']:
+            best_strategy = max(cycle_info['strategy_effectiveness'].items(), key=lambda x: x[1])
+            summary += f"   Melhor estratégia: {best_strategy[0]} ({best_strategy[1]:.1%})"
         
         return summary
